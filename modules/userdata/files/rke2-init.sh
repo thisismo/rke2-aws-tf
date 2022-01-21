@@ -92,11 +92,26 @@ post_userdata() {
   info "Ending user defined post userdata"
 }
 
+configure_network() {
+  $info "Configuring network"
+  cat <<EOF >>/etc/sysctl.conf
+
+# Allow IP forwarding for kubernetes
+net.bridge.bridge-nf-call-iptables = 1
+net.ipv4.ip_forward = 1
+net.ipv6.conf.default.forwarding = 1
+EOF
+  sysctl -p
+}
+
 {
   pre_userdata
 
   config
   set_token
+
+  configure_network
+
 
   if [ "$CCM" = "true" ]; then
     append_config 'kubelet-arg: "cloud-provider=external"'
@@ -130,6 +145,7 @@ EOF
     if [ "$SERVER_TYPE" = "leader" ]; then
       # For servers, wait for apiserver to be ready before continuing so that `post_userdata` can operate on the cluster
       info "I am leader. Yey."
+
       local_cp_api_wait
 
       # Initialize Cloud Controller Manager
@@ -157,7 +173,7 @@ EOF
 
   else #agent
     info "Initializing agent..."
-    append_config 'server: https://${server_url}:9345'
+    append_config "server: https://${server_url}:9345"
 
     # Default to agent
     systemctl enable rke2-agent
