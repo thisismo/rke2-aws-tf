@@ -65,7 +65,9 @@ module "rke2" {
   rke2_config = <<-EOT
 node-label:
   - "name=server"
-  - "os=rhel8"
+  - "os=ubuntu20.04"
+disable:
+  - "rke2-ingress-nginx"
 EOT
 
   tags = local.tags
