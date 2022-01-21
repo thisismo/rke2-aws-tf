@@ -34,14 +34,6 @@ get_installer() {
   chmod u+x install.sh
 }
 
-install_awscli() {
-  # Install awscli (used for secrets fetching)
-  # NOTE: Assumes unzip has already been installed
-  curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-  unzip -q awscliv2.zip
-  ./aws/install --bin-dir /usr/bin
-}
-
 do_download() {
   read_os
   get_installer
@@ -49,7 +41,6 @@ do_download() {
   case $ID in
   centos)
     yum install -y unzip
-    install_awscli
 
     # TODO: Determine minimum supported version, for now just carry on assuming ignorance
     case $VERSION in
@@ -68,7 +59,6 @@ do_download() {
 
   rhel)
     yum install -y unzip
-    install_awscli
 
     case $VERSION in
     7*)
@@ -90,27 +80,9 @@ do_download() {
     info "Identified Ubuntu"
     # TODO: Determine minimum supported version, for now just carry on assuming ignorance
     apt update -y
-    apt install -y unzip less iptables resolvconf linux-headers-$(uname -r) telnet
-    hostnamectl set-hostname "$(curl http://169.254.169.254/latest/meta-data/hostname)"
+    apt install -y unzip less iptables resolvconf telnet
 
     INSTALL_RKE2_METHOD='tar' INSTALL_RKE2_TYPE="${type}" ./install.sh
-
-    install_awscli
-    ;;
-  amzn)
-    # awscli already present, only need rke2
-    yum update -y
-
-    case $VERSION in
-    2)
-      info "Identified Amazon Linux 2"
-      INSTALL_RKE2_METHOD='tar' INSTALL_RKE2_TYPE="${type}" ./install.sh
-      ;;
-    *)
-      info "Identified Amazon Linux 1"
-      INSTALL_RKE2_METHOD='tar' INSTALL_RKE2_TYPE="${type}" ./install.sh
-      ;;
-    esac
     ;;
   *)
     fatal "$${ID} $${VERSION} is not currently supported"

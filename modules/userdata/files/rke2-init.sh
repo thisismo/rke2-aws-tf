@@ -1,7 +1,8 @@
 #!/bin/sh
 
-export TYPE="${type}"
+export TYPE="${type}" #server or agent
 export CCM="${ccm}"
+export SERVER_TYPE="${server_type}" #leader or server
 
 # info logs the given argument at info log level.
 info() {
@@ -35,41 +36,6 @@ append_config() {
   echo "$1" >> "/etc/rancher/rke2/config.yaml"
 }
 
-# The most simple "leader election" you've ever seen in your life
-elect_leader() {
-  # Fetch other running instances in ASG
-  instance_id=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-  asg_name=$(aws autoscaling describe-auto-scaling-instances --instance-ids "$instance_id" --query 'AutoScalingInstances[*].AutoScalingGroupName' --output text)
-  instances=$(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-name "$asg_name" --query 'AutoScalingGroups[*].Instances[?HealthStatus==`Healthy`].InstanceId' --output text)
-
-  # Simply identify the leader as the first of the instance ids sorted alphanumerically
-  leader=$(echo $instances | tr ' ' '\n' | sort -n | head -n1)
-
-  info "Current instance: $instance_id | Leader instance: $leader"
-
-  if [ "$instance_id" = "$leader" ]; then
-    SERVER_TYPE="leader"
-    info "Electing as cluster leader"
-  else
-    info "Electing as joining server"
-  fi
-}
-
-identify() {
-  # Default to server
-  SERVER_TYPE="server"
-
-  TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
-  supervisor_status=$(curl --write-out '%%{http_code}' -sk --output /dev/null https://${server_url}:9345/ping)
-
-  if [ "$supervisor_status" -ne 200 ]; then
-    info "API server unavailable, performing simple leader election"
-    elect_leader
-  else
-    info "API server available, identifying as server joining existing cluster"
-  fi
-}
-
 cp_wait() {
   while true; do
     supervisor_status=$(curl --write-out '%%{http_code}' -sk --output /dev/null https://${server_url}:9345/ping)
@@ -98,59 +64,26 @@ local_cp_api_wait() {
     sleep 5
   done
 
-  wait $!
+  #wait $!
 
-  nodereadypath='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}'
-  until kubectl get nodes --selector='node-role.kubernetes.io/master' -o jsonpath="$nodereadypath" | grep -E "Ready=True"; do
-    info "$(timestamp) Waiting for servers to be ready..."
-    sleep 5
-  done
+  #nodereadypath='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}'
+  #until kubectl get nodes --selector='node-role.kubernetes.io/master' -o jsonpath="$nodereadypath" | grep -E "Ready=True"; do
+  #  info "$(timestamp) Waiting for servers to be ready..."
+  #  sleep 5
+  #done
 
-  info "$(timestamp) all kube-system deployments are ready!"
+  #info "$(timestamp) all kube-system deployments are ready!"
 }
 
-fetch_token() {
-  info "Fetching rke2 join token..."
-
-  aws configure set default.region "$(curl -s http://169.254.169.254/latest/meta-data/placement/region)"
-
-  # Validate aws caller identity, fatal if not valid
-  if ! aws sts get-caller-identity 2>/dev/null; then
-    fatal "No valid aws caller identity"
-  fi
-
-  # Either
-  #   a) fetch token from s3 bucket
-  #   b) fail
-  if token=$(aws s3 cp "s3://${token_bucket}/${token_object}" - 2>/dev/null);then
-    info "Found token from s3 object"
-  else
-    fatal "Could not find cluster token from s3"
-  fi
-
-  echo "token: $${token}" >> "/etc/rancher/rke2/config.yaml"
-}
-
-upload() {
-  # Wait for kubeconfig to exist, then upload to s3 bucket
-  retries=10
-
-  while [ ! -f /etc/rancher/rke2/rke2.yaml ]; do
-    sleep 10
-    if [ "$retries" = 0 ]; then
-      fatal "Failed to create kubeconfig"
-    fi
-    ((retries--))
-  done
-
-  # Replace localhost with server url and upload to s3 bucket
-  sed "s/127.0.0.1/${server_url}/g" /etc/rancher/rke2/rke2.yaml | aws s3 cp - "s3://${token_bucket}/rke2.yaml"
+set_token() {
+  info "Setting rke2 join token... (${token})"
+  echo "token: ${token}" >> "/etc/rancher/rke2/config.yaml"
 }
 
 pre_userdata() {
   info "Beginning user defined pre userdata"
   ${pre_userdata}
-  info "Beginning user defined pre userdata"
+  info "Ending user defined pre userdata"
 }
 
 post_userdata() {
@@ -163,23 +96,26 @@ post_userdata() {
   pre_userdata
 
   config
-  fetch_token
+  set_token
 
-  if [ $CCM = "true" ]; then
-    append_config 'cloud-provider-name: "aws"'
+  if [ "$CCM" = "true" ]; then
+    append_config 'kubelet-arg: "cloud-provider=external"'
+    append_config "disable-cloud-controller: true"
   fi
 
-  if [ $TYPE = "server" ]; then
+  if [ "$TYPE" = "server" ]; then #server
     # Initialize server
-    identify
+    info "Initializing server..."
 
     cat <<EOF >> "/etc/rancher/rke2/config.yaml"
 tls-san:
   - ${server_url}
 EOF
 
-    if [ $SERVER_TYPE = "server" ]; then     # additional server joining an existing cluster
-      append_config 'server: https://${server_url}:9345'
+    if [ "$SERVER_TYPE" = "server" ]; then     # additional server joining an existing cluster
+      info "I am just a server. Humpf."
+      append_config "server: https://${server_url}:9345"
+
       # Wait for cluster to exist, then init another server
       cp_wait
     fi
@@ -191,15 +127,36 @@ EOF
     export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
     export PATH=$PATH:/var/lib/rancher/rke2/bin
 
-    if [ $SERVER_TYPE = "leader" ]; then
-      # Upload kubeconfig to s3 bucket
-      upload
-
+    if [ "$SERVER_TYPE" = "leader" ]; then
       # For servers, wait for apiserver to be ready before continuing so that `post_userdata` can operate on the cluster
+      info "I am leader. Yey."
       local_cp_api_wait
+
+      # Initialize Cloud Controller Manager
+      if [ "$CCM" = "true" ]; then
+        info "Deploying Cloud-Controller-Manager"
+        # manifestos addons
+        while ! test -d /var/lib/rancher/rke2/server/manifests; do
+            info "Waiting for '/var/lib/rancher/rke2/server/manifests'"
+            sleep 5
+        done
+
+        # ccm
+        kubectl -n kube-system create secret generic hcloud --from-literal=token=${hcloud_token} --from-literal=network=${hcloud_network}
+        cat <<EOF | sudo tee /var/lib/rancher/rke2/server/manifests/hcloud-ccm.yaml
+${ccm_manifest}
+EOF
+
+        # csi
+        kubectl -n kube-system create secret generic hcloud-csi --from-literal=token=${hcloud_token}
+        cat <<EOF | sudo tee /var/lib/rancher/rke2/server/manifests/hcloud-csi.yaml
+${csi_manifest}
+EOF
+      fi
     fi
 
-  else
+  else #agent
+    info "Initializing agent..."
     append_config 'server: https://${server_url}:9345'
 
     # Default to agent

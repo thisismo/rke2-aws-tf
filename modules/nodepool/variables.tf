@@ -2,12 +2,8 @@ variable "name" {
   type = string
 }
 
-variable "vpc_id" {
+variable "subnet_id" {
   type = string
-}
-
-variable "subnets" {
-  type = list(string)
 }
 
 variable "tags" {
@@ -15,74 +11,27 @@ variable "tags" {
   default = {}
 }
 
-variable "userdata" {
-  type    = string
-  default = ""
+variable "user_data" {
+  type    = list
+  default = []
 }
 
 variable "instance_type" {
-  default = "t3.medium"
+  default = "cx21"
+  type = string
 }
 
-variable "ami" {
-  type    = string
-  default = ""
+variable "location" {
+  description = "Hetzner datacenter where resources resides (nbg1, fsn1, hel1)"
+  default     = "nbg1"
 }
 
-variable "iam_instance_profile" {
-  type    = string
-  default = ""
+variable "node_count" {
+  description = "Count on nodes in group"
+  default     = 1
 }
 
-variable "health_check_type" {
-  type    = string
-  default = "EC2"
-}
-
-variable "target_group_arns" {
-  type    = list(string)
-  default = []
-}
-
-variable "load_balancers" {
-  type    = list(string)
-  default = []
-}
-
-variable "vpc_security_group_ids" {
-  type    = list(string)
-  default = []
-}
-
-variable "block_device_mappings" {
-  type = map(string)
-
-  default = {
-    "size" = 30
-    type   = "gp2"
-  }
-}
-
-variable "extra_block_device_mappings" {
-  type = list(map(string))
-  default = [
-  ]
-}
-
-variable "asg" {
-  type = object({
-    min     = number
-    max     = number
-    desired = number
-  })
-}
-
-variable "spot" {
-  default = false
-  type    = bool
-}
-
-variable "min_elb_capacity" {
-  type    = number
-  default = null
+variable "image" {
+  description = "Node boot image"
+  default     = "ubuntu-20.04"
 }

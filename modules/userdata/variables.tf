@@ -4,18 +4,19 @@ variable "agent" {
   default     = true
 }
 
+variable "is_leader" {
+  description = "Toggle leader or follower, defaults to follower"
+  type        = bool
+  default     = false
+}
+
 variable "server_url" {
   description = "rke2 server url"
   type        = string
 }
 
-variable "token_bucket" {
-  description = "Bucket name where token is located"
-  type        = string
-}
-
-variable "token_object" {
-  description = "Object name of token in bucket"
+variable "token" {
+  description = "Join token"
   type        = string
   default     = "token"
 }
@@ -26,10 +27,25 @@ variable "config" {
   default     = ""
 }
 
+#
+# Cloud Controller Manager
+#
 variable "ccm" {
   description = "Toggle cloud controller manager"
   type        = bool
-  default     = false
+  default     = true
+}
+
+variable "hcloud_token" {
+  description = "HCloud token"
+  type        = string
+  default     = ""
+}
+
+variable "hcloud_network_id" {
+  description = "HCloud network id"
+  type        = string
+  default     = ""
 }
 
 #

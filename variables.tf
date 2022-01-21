@@ -1,5 +1,5 @@
 variable "cluster_name" {
-  description = "Name of the rkegov cluster to create"
+  description = "Name of the rke2 cluster to create"
   type        = string
 }
 
@@ -9,14 +9,20 @@ variable "unique_suffix" {
   default     = true
 }
 
-variable "vpc_id" {
-  description = "VPC ID to create resources in"
+variable "hcloud_token" {
+  description = "HCloud token"
   type        = string
 }
 
+/*
 variable "subnets" {
   description = "List of subnet IDs to create resources in"
   type        = list(string)
+}*/
+
+variable "subnet_id" {
+  description = "Subnet ID to create resources in"
+  type        = string
 }
 
 variable "tags" {
@@ -26,45 +32,38 @@ variable "tags" {
 }
 
 #
-# Server pool variables
+# LB variables
 #
-variable "instance_type" {
-  type        = string
-  default     = "t3a.medium"
-  description = "Server pool instance type"
-}
-
-variable "ami" {
-  description = "Server pool ami"
+variable "lb_type" {
+  description = "Type of load balancer to create"
+  default     = "lb11"
   type        = string
 }
 
-variable "iam_instance_profile" {
-  description = "Server pool IAM Instance Profile, created if left blank (default behavior)"
-  type        = string
-  default     = ""
-}
-
-variable "iam_permissions_boundary" {
-  description = "If provided, the IAM role created for the servers will be created with this permissions boundary attached."
-  type        = string
-  default     = null
-}
-
-variable "block_device_mappings" {
-  description = "Server pool block device mapping configuration"
-  type        = map(string)
-  default = {
-    "size"      = 30
-    "encrypted" = false
+#
+# Server variables
+#
+variable "server_instance_type" {
+  description = "Server type (size)"
+  default     = "cx11" # 2 vCPU, 4 GB RAM, 40 GB Disk space
+  validation {
+    condition     = can(regex("^cx11$|^cpx11$|^cx21$|^cpx21$|^cx31$|^cpx31$|^cx41$|^cpx41$|^cx51$|^cpx51$|^ccx11$|^ccx21$|^ccx31$|^ccx41$|^ccx51$", var.server_instance_type))
+    error_message = "Server type is not valid."
   }
 }
 
-variable "extra_block_device_mappings" {
-  description = "Used to specify additional block device mapping configurations"
-  type        = list(map(string))
-  default = [
-  ]
+variable "agent_instance_type" {
+  description = "Agent type (size)"
+  default     = "cx21" # 2 vCPU, 4 GB RAM, 40 GB Disk space
+  validation {
+    condition     = can(regex("^cx11$|^cpx11$|^cx21$|^cpx21$|^cx31$|^cpx31$|^cx41$|^cpx41$|^cx51$|^cpx51$|^ccx11$|^ccx21$|^ccx31$|^ccx41$|^ccx51$", var.agent_instance_type))
+    error_message = "Agent type is not valid."
+  }
+}
+
+variable "location" {
+  description = "Hetzner Cloud location where resources resides (e.g. nbg1, fsn1, hel1)"
+  default = "nbg1"
 }
 
 variable "servers" {
@@ -73,10 +72,10 @@ variable "servers" {
   default     = 1
 }
 
-variable "spot" {
-  description = "Toggle spot requests for server pool"
-  type        = bool
-  default     = false
+variable "agents" {
+  description = "Number of agents to create"
+  type        = number
+  default     = 1
 }
 
 variable "ssh_authorized_keys" {
@@ -85,37 +84,13 @@ variable "ssh_authorized_keys" {
   default     = []
 }
 
-variable "extra_security_group_ids" {
-  description = "List of additional security group IDs"
-  type        = list(string)
-  default     = []
-}
-
 #
 # Controlplane Variables
 #
-variable "controlplane_enable_cross_zone_load_balancing" {
-  description = "Toggle between controlplane cross zone load balancing"
-  default     = true
-  type        = bool
-}
-
 variable "controlplane_internal" {
   description = "Toggle between public or private control plane load balancer"
-  default     = true
+  default     = false
   type        = bool
-}
-
-variable "controlplane_allowed_cidrs" {
-  description = "Server pool security group allowed cidr ranges"
-  type        = list(string)
-  default     = ["0.0.0.0/0"]
-}
-
-variable "controlplane_access_logs_bucket" {
-  description = "Bucket name for logging requests to control plane load balancer"
-  type        = string
-  default     = "disabled"
 }
 
 #
@@ -124,7 +99,7 @@ variable "controlplane_access_logs_bucket" {
 variable "rke2_version" {
   description = "Version to use for RKE2 server nodes"
   type        = string
-  default     = "v1.19.7+rke2r1"
+  default     = "v1.22.5+rke2r2"
 }
 
 variable "rke2_config" {
@@ -154,5 +129,5 @@ variable "post_userdata" {
 variable "enable_ccm" {
   description = "Toggle enabling the cluster as aws aware, this will ensure the appropriate IAM policies are present"
   type        = bool
-  default     = false
+  default     = true
 }
