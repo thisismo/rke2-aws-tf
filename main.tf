@@ -68,6 +68,14 @@ resource "hcloud_firewall" "firewall" {
       "::/0"
     ]
   }
+  rule {
+    direction = "in"
+    protocol  = "tcp"
+    port      = "any"
+    source_ips = [
+      "10.0.0.0/8"
+    ]
+  }
   apply_to {
     label_selector = "Role=agent"
   }
