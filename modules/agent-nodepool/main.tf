@@ -1,5 +1,5 @@
 locals {
-  name = "${var.cluster_name}-${var.name}"
+  name = length(var.name) == 0 ? var.cluster_name : "${var.cluster_name}-${var.name}"
 
   default_tags = {
     "ClusterType" = "rke2",

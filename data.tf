@@ -8,7 +8,7 @@ module "init" {
   post_userdata = var.post_userdata
   ccm           = var.enable_ccm
   hcloud_token  = var.hcloud_token
-  hcloud_network_id = var.subnet_id
+  hcloud_network_id = var.network_id
   agent         = false
   is_leader     = count.index == 0 ? true : false
 

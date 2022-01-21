@@ -50,9 +50,10 @@ module "rke2" {
   cluster_name = local.cluster_name
   hcloud_token = local.hcloud_token
   subnet_id    = hcloud_network_subnet.subnet.id
+  network_id   = hcloud_network.private.id
 
   ssh_authorized_keys   = [tls_private_key.ssh.public_key_openssh]
-  server_instance_type  = "cx11"
+  server_instance_type  = "cx21"
   agent_instance_type   = "cx21"
   controlplane_internal = false # Note this defaults to best practice of true, but is explicitly set to public for demo purposes
   servers               = local.server_count

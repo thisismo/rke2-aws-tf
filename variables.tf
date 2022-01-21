@@ -20,6 +20,11 @@ variable "subnets" {
   type        = list(string)
 }*/
 
+variable "network_id" {
+  description = "ID of the network to create resources in"
+  type        = string
+}
+
 variable "subnet_id" {
   description = "Subnet ID to create resources in"
   type        = string
