@@ -68,6 +68,15 @@ resource "hcloud_firewall" "firewall" {
       "::/0"
     ]
   }
+  rule { #open ssh port
+    direction = "in"
+    protocol  = "tcp"
+    port      = "22"
+    source_ips = [
+      "0.0.0.0/0",
+      "::/0"
+    ]
+  }
   rule {
     direction = "in"
     protocol  = "tcp"

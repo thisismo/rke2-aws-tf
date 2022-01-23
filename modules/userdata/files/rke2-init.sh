@@ -64,15 +64,15 @@ local_cp_api_wait() {
     sleep 5
   done
 
-  #wait $!
+  wait $!
 
-  #nodereadypath='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}'
-  #until kubectl get nodes --selector='node-role.kubernetes.io/master' -o jsonpath="$nodereadypath" | grep -E "Ready=True"; do
-  #  info "$(timestamp) Waiting for servers to be ready..."
-  #  sleep 5
-  #done
+  nodereadypath='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}'
+  until kubectl get nodes --selector='node-role.kubernetes.io/master' -o jsonpath="$nodereadypath" | grep -E "Ready=True"; do
+    info "$(timestamp) Waiting for servers to be ready..."
+    sleep 5
+  done
 
-  #info "$(timestamp) all kube-system deployments are ready!"
+  info "$(timestamp) all kube-system deployments are ready!"
 }
 
 set_token() {
@@ -93,11 +93,11 @@ post_userdata() {
 }
 
 configure_network() {
-  $info "Configuring network"
+  info "Configuring network"
+  modprobe br_netfilter
   cat <<EOF >>/etc/sysctl.conf
 
 # Allow IP forwarding for kubernetes
-net.bridge.bridge-nf-call-iptables = 1
 net.ipv4.ip_forward = 1
 net.ipv6.conf.default.forwarding = 1
 EOF
@@ -114,8 +114,9 @@ EOF
 
 
   if [ "$CCM" = "true" ]; then
-    append_config 'kubelet-arg: "cloud-provider=external"'
-    append_config "disable-cloud-controller: true"
+    #append_config 'kubelet-arg: "cloud-provider=external"'
+    append_config 'disable-cloud-controller: "true"'
+    #append_config 'cloud-provider-name: "hcloud"'
   fi
 
   if [ "$TYPE" = "server" ]; then #server
@@ -135,9 +136,13 @@ EOF
       cp_wait
     fi
 
+    append_config "node-ip: 10.0.0.4"
+
     systemctl enable rke2-server
     systemctl daemon-reload
     systemctl start rke2-server
+
+    info "Started server service"
 
     export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
     export PATH=$PATH:/var/lib/rancher/rke2/bin
@@ -168,11 +173,20 @@ EOF
         cat <<EOF | sudo tee /var/lib/rancher/rke2/server/manifests/hcloud-csi.yaml
 ${csi_manifest}
 EOF
+
+        # canal config to use hcloud network interface for intra-cluster communication
+        cat <<EOF | sudo tee /var/lib/rancher/rke2/server/manifests/canal-config.yaml
+${canal_config}
+EOF
       fi
     fi
 
   else #agent
     info "Initializing agent..."
+    if [ "$CCM" = "true" ]; then
+      append_config 'kubelet-arg: "cloud-provider=external"'
+      append_config 'node-ip: 10.0.0.3'
+    fi
     append_config "server: https://${server_url}:9345"
 
     # Default to agent
