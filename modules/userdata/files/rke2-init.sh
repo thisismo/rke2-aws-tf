@@ -92,6 +92,14 @@ post_userdata() {
   info "Ending user defined post userdata"
 }
 
+set_node_ips() {
+  node_ip=$(hostname --all-ip-addresses | awk '{print $2}') #private hetzner network ipv4
+  node_external_ip=$(hostname --all-ip-addresses | awk '{print $1}') #public ipv4
+  info "Got node ips: $${node_ip}(private) $${node_external_ip}(external)"
+  append_config "node-ip: $${node_ip}"
+  append_config "node-external-ip: $${node_external_ip}"
+}
+
 configure_network() {
   info "Configuring network"
   modprobe br_netfilter
@@ -109,6 +117,7 @@ EOF
 
   config
   set_token
+  set_node_ips
 
   configure_network
 
@@ -135,8 +144,6 @@ EOF
       # Wait for cluster to exist, then init another server
       cp_wait
     fi
-
-    append_config "node-ip: 10.0.0.4"
 
     systemctl enable rke2-server
     systemctl daemon-reload
@@ -185,7 +192,6 @@ EOF
     info "Initializing agent..."
     if [ "$CCM" = "true" ]; then
       append_config 'kubelet-arg: "cloud-provider=external"'
-      append_config 'node-ip: 10.0.0.3'
     fi
     append_config "server: https://${server_url}:9345"
 
