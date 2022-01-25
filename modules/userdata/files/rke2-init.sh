@@ -97,7 +97,7 @@ set_node_ips() {
   node_external_ip=$(hostname --all-ip-addresses | awk '{print $1}') #public ipv4
   info "Got node ips: $${node_ip}(private) $${node_external_ip}(external)"
   append_config "node-ip: $${node_ip}"
-  append_config "node-external-ip: $${node_external_ip}"
+  #append_config "node-external-ip: $${node_external_ip}"
 }
 
 configure_network() {
@@ -119,18 +119,20 @@ EOF
   set_token
   set_node_ips
 
-  configure_network
+  #configure_network
 
 
   if [ "$CCM" = "true" ]; then
-    #append_config 'kubelet-arg: "cloud-provider=external"'
+    append_config 'kubelet-arg: "cloud-provider=external"'
     append_config 'disable-cloud-controller: "true"'
-    #append_config 'cloud-provider-name: "hcloud"'
   fi
 
   if [ "$TYPE" = "server" ]; then #server
     # Initialize server
     info "Initializing server..."
+
+    append_config "advertise-address: ${server_url}"
+    #append_config 'kube-apiserver-arg: "kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname"'
 
     cat <<EOF >> "/etc/rancher/rke2/config.yaml"
 tls-san:
@@ -180,20 +182,17 @@ EOF
         cat <<EOF | sudo tee /var/lib/rancher/rke2/server/manifests/hcloud-csi.yaml
 ${csi_manifest}
 EOF
-
-        # canal config to use hcloud network interface for intra-cluster communication
-        cat <<EOF | sudo tee /var/lib/rancher/rke2/server/manifests/canal-config.yaml
-${canal_config}
-EOF
       fi
     fi
 
   else #agent
     info "Initializing agent..."
+    append_config "server: https://${server_url}:9345"
     if [ "$CCM" = "true" ]; then
       append_config 'kubelet-arg: "cloud-provider=external"'
+      #append_config 'disable-cloud-controller: "true"'
+      #append_config 'cloud-provider-name: "hcloud"'
     fi
-    append_config "server: https://${server_url}:9345"
 
     # Default to agent
     systemctl enable rke2-agent

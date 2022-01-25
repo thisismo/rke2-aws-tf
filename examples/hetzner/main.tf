@@ -5,8 +5,8 @@ provider "hcloud" {
 locals {
   cluster_name = "prod"
   hcloud_token = "23TnQRzzhJRT1dl6QIFxIKq0dn8RjJTL4kpHgt1hFuArmwARGvSI8R4eHnwr1mRd"
-  server_count = 1
-  agent_count  = 1
+  server_count = 3
+  agent_count  = 3
 
   tags = {
     "terraform" = "true",
