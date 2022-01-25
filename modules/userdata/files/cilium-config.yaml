@@ -1,9 +1,10 @@
 apiVersion: helm.cattle.io/v1
 kind: HelmChartConfig
 metadata:
-  name: rke2-canal
+  name: rke2-cilium
   namespace: kube-system
 spec:
   valuesContent: |-
-    flannel:
-      iface: "eth0"
+    cilium:
+      tunnel: "disabled"
+      nativeRoutingCIDR: "10.42.0.0/16"

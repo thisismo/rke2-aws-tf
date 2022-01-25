@@ -80,7 +80,7 @@ do_download() {
     info "Identified Ubuntu"
     # TODO: Determine minimum supported version, for now just carry on assuming ignorance
     apt update -y
-    apt install -y unzip less iptables resolvconf telnet
+    apt install -y unzip less iptables resolvconf telnet linux-headers-$(uname -r) jq curl open-iscsi
 
     INSTALL_RKE2_METHOD='tar' INSTALL_RKE2_TYPE="${type}" ./install.sh
     ;;

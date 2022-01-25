@@ -1,7 +1,7 @@
 locals {
   csi_yaml = file("${path.module}/files/hcloud-csi.yaml")
   ccm_yaml = file("${path.module}/files/hcloud-ccm.yaml")
-  canal_yaml = file("${path.module}/files/canal-config.yaml")
+  cilium_yaml = file("${path.module}/files/cilium-config.yaml")
 }
 
 data "template_file" "init" {
@@ -21,7 +21,7 @@ data "template_file" "init" {
 
     ccm_manifest = local.ccm_yaml
     csi_manifest = local.csi_yaml
-    canal_config = local.canal_yaml
+    cilium_config = local.cilium_yaml
 
     pre_userdata  = var.pre_userdata
     post_userdata = var.post_userdata

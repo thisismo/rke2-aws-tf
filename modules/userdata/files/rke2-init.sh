@@ -61,7 +61,7 @@ local_cp_api_wait() {
     if timeout 1 bash -c "true <>/dev/tcp/localhost/6443" 2>/dev/null; then
         break
     fi
-    sleep 5
+    sleep 10
   done
 
   wait $!
@@ -69,7 +69,7 @@ local_cp_api_wait() {
   nodereadypath='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}'
   until kubectl get nodes --selector='node-role.kubernetes.io/master' -o jsonpath="$nodereadypath" | grep -E "Ready=True"; do
     info "$(timestamp) Waiting for servers to be ready..."
-    sleep 5
+    sleep 10
   done
 
   info "$(timestamp) all kube-system deployments are ready!"
@@ -93,23 +93,11 @@ post_userdata() {
 }
 
 set_node_ips() {
-  node_ip=$(hostname --all-ip-addresses | awk '{print $2}') #private hetzner network ipv4
-  node_external_ip=$(hostname --all-ip-addresses | awk '{print $1}') #public ipv4
-  info "Got node ips: $${node_ip}(private) $${node_external_ip}(external)"
-  append_config "node-ip: $${node_ip}"
-  #append_config "node-external-ip: $${node_external_ip}"
-}
-
-configure_network() {
-  info "Configuring network"
-  modprobe br_netfilter
-  cat <<EOF >>/etc/sysctl.conf
-
-# Allow IP forwarding for kubernetes
-net.ipv4.ip_forward = 1
-net.ipv6.conf.default.forwarding = 1
-EOF
-  sysctl -p
+  export NODE_IP=$(hostname --all-ip-addresses | awk '{print $2}') #private hetzner network ipv4
+  export NODE_EXTERNAL_IP=$(hostname --all-ip-addresses | awk '{print $1}') #public ipv4
+  info "Got node ips: $${NODE_IP}(private) $${NODE_EXTERNAL_IP}(external)"
+  append_config "node-ip: $${NODE_IP}"
+  append_config "node-external-ip: $${NODE_EXTERNAL_IP}"
 }
 
 {
@@ -117,22 +105,21 @@ EOF
 
   config
   set_token
-  set_node_ips
 
-  #configure_network
+  set_node_ips
 
 
   if [ "$CCM" = "true" ]; then
-    append_config 'kubelet-arg: "cloud-provider=external"'
     append_config 'disable-cloud-controller: "true"'
+    append_config 'cni: "cilium"'
   fi
 
   if [ "$TYPE" = "server" ]; then #server
     # Initialize server
     info "Initializing server..."
 
-    append_config "advertise-address: ${server_url}"
-    #append_config 'kube-apiserver-arg: "kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname"'
+    #append_config "node-external-ip: $${NODE_EXTERNAL_IP}"
+    append_config 'kube-apiserver-arg: "--kubelet-preferred-address-types=InternalIP,Hostname,ExternalIP"'
 
     cat <<EOF >> "/etc/rancher/rke2/config.yaml"
 tls-san:
@@ -176,6 +163,10 @@ EOF
         cat <<EOF | sudo tee /var/lib/rancher/rke2/server/manifests/hcloud-ccm.yaml
 ${ccm_manifest}
 EOF
+        # cilium config
+        cat <<EOF | sudo tee /var/lib/rancher/rke2/server/manifests/cilium-config.yaml
+${cilium_config}
+EOF
 
         # csi
         kubectl -n kube-system create secret generic hcloud-csi --from-literal=token=${hcloud_token}
@@ -188,11 +179,6 @@ EOF
   else #agent
     info "Initializing agent..."
     append_config "server: https://${server_url}:9345"
-    if [ "$CCM" = "true" ]; then
-      append_config 'kubelet-arg: "cloud-provider=external"'
-      #append_config 'disable-cloud-controller: "true"'
-      #append_config 'cloud-provider-name: "hcloud"'
-    fi
 
     # Default to agent
     systemctl enable rke2-agent
