@@ -183,7 +183,7 @@ EOF
 ${ccm_manifest}
 EOF
 
-        kubectl -n kube-system patch ds rke2-cilium --type json -p '[{"op":"add","path":"/spec/template/spec/tolerations/-","value":{"key":"node.cloudprovider.kubernetes.io/uninitialized","value":"true","effect":"NoSchedule"}}]'
+        #kubectl -n kube-system patch ds rke2-cilium --type json -p '[{"op":"add","path":"/spec/template/spec/tolerations/-","value":{"key":"node.cloudprovider.kubernetes.io/uninitialized","value":"true","effect":"NoSchedule"}}]'
 
         # csi
         kubectl -n kube-system create secret generic hcloud-csi --from-literal=token=${hcloud_token}

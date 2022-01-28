@@ -12,6 +12,8 @@ spec:
       autoDirectNodeRoutes: false
       nativeRoutingCIDR: "10.0.0.0/8"
       ipv4NativeRoutingCIDR: "10.0.0.0/8"
+      externalIPs:
+        enabled: true
     global:
       clusterCIDR: "10.42.0.0/16"
       serviceCIDR: "10.43.0.0/16"
