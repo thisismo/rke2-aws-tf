@@ -103,6 +103,11 @@ set_node_ips() {
 
 configure_network() {
   modprobe br_netfilter
+  cat <<EOF >>/etc/sysctl.conf
+
+# Allow IP forwarding for kubernetes
+net.ipv4.ip_forward = 1
+EOF
   sysctl -p
 }
 
@@ -113,7 +118,7 @@ configure_network() {
   set_token
 
   configure_network
-  #set_node_ips
+  set_node_ips
 
   append_config 'kubelet-arg: "cloud-provider=external"'
 
@@ -171,6 +176,7 @@ EOF
         cat <<EOF | sudo tee /var/lib/rancher/rke2/server/manifests/cilium-config.yaml
 ${cilium_config}
 EOF
+
         # ccm
         kubectl -n kube-system create secret generic hcloud --from-literal=token=${hcloud_token} --from-literal=network=${hcloud_network}
         cat <<EOF | sudo tee /var/lib/rancher/rke2/server/manifests/hcloud-ccm.yaml
