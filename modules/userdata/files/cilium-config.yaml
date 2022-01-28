@@ -7,4 +7,6 @@ spec:
   valuesContent: |-
     cilium:
       tunnel: "disabled"
-      nativeRoutingCIDR: "10.42.0.0/16"
+      ipam:
+        mode: "kubernetes"
+      nativeRoutingCIDR: "10.0.0.0/8"

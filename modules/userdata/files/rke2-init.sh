@@ -97,7 +97,13 @@ set_node_ips() {
   export NODE_EXTERNAL_IP=$(hostname --all-ip-addresses | awk '{print $1}') #public ipv4
   info "Got node ips: $${NODE_IP}(private) $${NODE_EXTERNAL_IP}(external)"
   append_config "node-ip: $${NODE_IP}"
-  append_config "node-external-ip: $${NODE_EXTERNAL_IP}"
+  #append_config "cluster-cidr: 10.42.0.0/16"
+  #append_config "service-cidr: 10.43.0.0/16"
+}
+
+configure_network() {
+  modprobe br_netfilter
+  sysctl -p
 }
 
 {
@@ -106,29 +112,32 @@ set_node_ips() {
   config
   set_token
 
-  set_node_ips
+  configure_network
+  #set_node_ips
 
-
-  if [ "$CCM" = "true" ]; then
-    append_config 'disable-cloud-controller: "true"'
-    append_config 'cni: "cilium"'
-  fi
+  append_config 'kubelet-arg: "cloud-provider=external"'
 
   if [ "$TYPE" = "server" ]; then #server
     # Initialize server
     info "Initializing server..."
 
-    #append_config "node-external-ip: $${NODE_EXTERNAL_IP}"
-    append_config 'kube-apiserver-arg: "--kubelet-preferred-address-types=InternalIP,Hostname,ExternalIP"'
+    if [ "$CCM" = "true" ]; then
+      append_config 'disable-cloud-controller: "true"'
+      append_config 'cni: "cilium"'
+      #append_config "node-external-ip: $${NODE_EXTERNAL_IP}"
+    fi
+
+    #append_config 'kube-apiserver-arg: "kubelet-preferred-address-types=InternalIP,Hostname,ExternalIP"'
 
     cat <<EOF >> "/etc/rancher/rke2/config.yaml"
 tls-san:
   - ${server_url}
+  - 10.0.0.2
 EOF
 
     if [ "$SERVER_TYPE" = "server" ]; then     # additional server joining an existing cluster
       info "I am just a server. Humpf."
-      append_config "server: https://${server_url}:9345"
+      append_config "server: https://10.0.0.2:9345"
 
       # Wait for cluster to exist, then init another server
       cp_wait
@@ -158,15 +167,17 @@ EOF
             sleep 5
         done
 
+        # cilium config
+        cat <<EOF | sudo tee /var/lib/rancher/rke2/server/manifests/cilium-config.yaml
+${cilium_config}
+EOF
         # ccm
         kubectl -n kube-system create secret generic hcloud --from-literal=token=${hcloud_token} --from-literal=network=${hcloud_network}
         cat <<EOF | sudo tee /var/lib/rancher/rke2/server/manifests/hcloud-ccm.yaml
 ${ccm_manifest}
 EOF
-        # cilium config
-        cat <<EOF | sudo tee /var/lib/rancher/rke2/server/manifests/cilium-config.yaml
-${cilium_config}
-EOF
+
+        kubectl -n kube-system patch ds rke2-cilium --type json -p '[{"op":"add","path":"/spec/template/spec/tolerations/-","value":{"key":"node.cloudprovider.kubernetes.io/uninitialized","value":"true","effect":"NoSchedule"}}]'
 
         # csi
         kubectl -n kube-system create secret generic hcloud-csi --from-literal=token=${hcloud_token}
@@ -178,7 +189,7 @@ EOF
 
   else #agent
     info "Initializing agent..."
-    append_config "server: https://${server_url}:9345"
+    append_config "server: https://10.0.0.2:9345"
 
     # Default to agent
     systemctl enable rke2-agent
