@@ -97,6 +97,7 @@ set_node_ips() {
   export NODE_EXTERNAL_IP=$(hostname --all-ip-addresses | awk '{print $1}') #public ipv4
   info "Got node ips: $${NODE_IP}(private) $${NODE_EXTERNAL_IP}(external)"
   append_config "node-ip: $${NODE_IP}"
+  #append_config "node-external-ip: $${NODE_EXTERNAL_IP}"
   #append_config "cluster-cidr: 10.42.0.0/16"
   #append_config "service-cidr: 10.43.0.0/16"
 }
@@ -121,6 +122,7 @@ EOF
   set_node_ips
 
   append_config 'kubelet-arg: "cloud-provider=external"'
+  append_config 'resolv-conf: "/run/systemd/resolve/resolv.conf"'
 
   if [ "$TYPE" = "server" ]; then #server
     # Initialize server
