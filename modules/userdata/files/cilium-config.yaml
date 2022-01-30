@@ -8,6 +8,4 @@ spec:
     cilium:
       tunnel: "disabled"
       autoDirectNodeRoutes: false
-      nativeRoutingCIDR: "10.42.0.0/16"
-      endpointRoutes:
-        enabled: true
+      nativeRoutingCIDR: "10.0.0.0/8"
