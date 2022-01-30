@@ -98,8 +98,6 @@ set_node_ips() {
   info "Got node ips: $${NODE_IP}(private) $${NODE_EXTERNAL_IP}(external)"
   append_config "node-ip: $${NODE_IP}"
   #append_config "node-external-ip: $${NODE_EXTERNAL_IP}"
-  #append_config "cluster-cidr: 10.42.0.0/16"
-  #append_config "service-cidr: 10.43.0.0/16"
 }
 
 configure_network() {
