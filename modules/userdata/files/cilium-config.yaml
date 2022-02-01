@@ -7,5 +7,4 @@ spec:
   valuesContent: |-
     cilium:
       tunnel: "disabled"
-      autoDirectNodeRoutes: false
-      nativeRoutingCIDR: "10.0.0.0/8"
+      nativeRoutingCIDR: "10.0.0.0/16"
