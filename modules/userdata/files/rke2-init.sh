@@ -109,6 +109,7 @@ configure_network() {
 net.bridge.bridge-nf-call-iptables = 1
 net.bridge.bridge-nf-call-ip6tables = 1
 net.ipv4.ip_forward = 1
+net.ipv6.conf.all.forwarding = 1
 EOF
   sysctl -p
 }
@@ -135,7 +136,7 @@ EOF
       #append_config "node-external-ip: $${NODE_EXTERNAL_IP}"
     fi
 
-    #append_config 'kube-apiserver-arg: "kubelet-preferred-address-types=InternalIP,Hostname,ExternalIP"'
+    append_config 'kube-apiserver-arg: "kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname"'
 
     cat <<EOF >> "/etc/rancher/rke2/config.yaml"
 tls-san:
